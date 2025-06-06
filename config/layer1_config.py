@@ -30,6 +30,9 @@ WEBSITES = {
     }
 }
 
+# Alternative name for backwards compatibility
+SITE_CONFIG = WEBSITES
+
 # Active website configuration (change this to switch between websites)
 ACTIVE_WEBSITE = "psychotherapeutensuche"
 
@@ -57,10 +60,10 @@ DEFAULT_VALUES = {
 }
 
 # Pagination settings
-MAX_PAGES = 5  # Maximum number of pages to scrape, set to -1 for unlimited
+MAX_PAGES = 2  # Maximum number of pages to scrape, set to -1 for unlimited
 
 # Rate limiting settings
 DELAY_BETWEEN_PAGES = 10  # seconds
 MAX_RETRIES = 3
-BATCH_SIZE = 5  # Process this many pages before taking a longer break
+BATCH_SIZE = 5  
 BATCH_BREAK_TIME = 30  # seconds
