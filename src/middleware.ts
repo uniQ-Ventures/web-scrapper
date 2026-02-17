@@ -23,6 +23,11 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
   if (!token) {
+    // In development, let API calls through — route handlers have their own
+    // getAuthUserId() fallback that creates a demo user
+    if (process.env.NODE_ENV === "development") {
+      return NextResponse.next();
+    }
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
