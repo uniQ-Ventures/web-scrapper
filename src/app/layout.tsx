@@ -17,6 +17,7 @@ import {
   X,
   Wallet,
   LogOut,
+  Building2,
 } from "lucide-react";
 import CopilotPanel from "@/components/copilot-panel";
 
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/expenses", label: "Expenses", icon: CreditCard },
   { href: "/revenue", label: "Revenue", icon: TrendingUp },
+  { href: "/bank", label: "Bank", icon: Building2 },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

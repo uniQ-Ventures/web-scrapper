@@ -45,7 +45,10 @@ model User {
   revenues   Revenue[]
   accounts   Account[]
   clients    Client[]
-  categories ExpenseCategory[]
+  categories       ExpenseCategory[]
+  bankAccounts     BankAccount[]
+  bankTransactions BankTransaction[]
+  importBatches    ImportBatch[]
 }
 
 model Account {
@@ -205,4 +208,67 @@ model BudgetThreshold {
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model BankAccount {
+  id             String   @id @default(uuid())
+  name           String
+  bankName       String?
+  accountNumber  String?
+  ifscCode       String?
+  currentBalance Decimal  @default(0) @db.Decimal(15, 2)
+  currency       String   @default("INR")
+  isActive       Boolean  @default(true)
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String?
+  transactions   BankTransaction[]
+}
+
+model BankTransaction {
+  id              String   @id @default(uuid())
+  date            DateTime
+  description     String
+  reference       String?
+  amount          Decimal  @db.Decimal(15, 2)
+  type            String   @default("debit")  // debit | credit
+  balance         Decimal? @db.Decimal(15, 2)
+  category        String?
+  vendor          String?
+  notes           String?  @db.Text
+  isReconciled    Boolean  @default(false)
+  confidence      Decimal? @db.Decimal(3, 2)   // AI categorization confidence 0-1
+  source          String   @default("csv")     // csv | ofx | aa | manual
+  importBatchId   String?
+  matchedExpenseId String?
+  matchedInvoiceId String?
+  hash            String?  @unique            // dedup hash
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bankAccountId  String
+  bankAccount    BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  importBatch    ImportBatch? @relation(fields: [importBatchId], references: [id])
+}
+
+model ImportBatch {
+  id            String   @id @default(uuid())
+  type          String            // bank_csv | expense_csv | revenue_csv | financial_statement
+  fileName      String
+  rowCount      Int      @default(0)
+  status        String   @default("pending")  // pending | processing | completed | failed
+  errorMessage  String?  @db.Text
+  columnMapping String?  @db.Text  // JSON string of column mappings
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions  BankTransaction[]
 }
