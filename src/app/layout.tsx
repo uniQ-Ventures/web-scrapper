@@ -25,6 +25,7 @@ import {
   GitMerge,
   Receipt,
   CalendarDays,
+  ArrowRightLeft,
 } from "lucide-react";
 import CopilotPanel from "@/components/copilot-panel";
 
@@ -42,6 +43,7 @@ const navItems = [
   { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/tds", label: "TDS", icon: Receipt },
   { href: "/gst", label: "GST Returns", icon: FileText },
+  { href: "/fx", label: "FX Rates", icon: ArrowRightLeft },
   { href: "/compliance", label: "Calendar", icon: CalendarDays },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
