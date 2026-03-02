@@ -27,7 +27,7 @@ import {
   Cell,
 } from "recharts";
 
-type Tab = "pnl" | "cashflow" | "tax";
+type Tab = "pnl" | "cashflow" | "tax" | "aging";
 
 interface PnLData {
   revenue: { label: string; amount: number }[];
@@ -50,6 +50,25 @@ interface TaxData {
   netPayable: number;
   invoiceCount: number;
   expenseCount: number;
+}
+
+interface AgingItem {
+  id: string;
+  invoiceNumber: string;
+  clientName: string;
+  dueDate: string;
+  total: number;
+  paid: number;
+  balance: number;
+  daysOverdue: number;
+  status: string;
+}
+
+interface AgingData {
+  buckets: { current: number; d1_30: number; d31_60: number; d61_90: number; d90_plus: number };
+  totalOutstanding: number;
+  invoiceCount: number;
+  items: AgingItem[];
 }
 
 const CHART_COLORS = ["#6366F1", "#A855F7", "#EC4899", "#F43F5E", "#F59E0B", "#22C55E", "#3B82F6", "#14B8A6"];
@@ -90,22 +109,36 @@ export default function ReportsPage() {
   const [pnl, setPnl] = useState<PnLData | null>(null);
   const [cashFlow, setCashFlow] = useState<CashFlowData | null>(null);
   const [tax, setTax] = useState<TaxData | null>(null);
+  const [aging, setAging] = useState<AgingData | null>(null);
+
+  // Date range state
+  const now = new Date();
+  const [fromDate, setFromDate] = useState(
+    new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  );
+  const [toDate, setToDate] = useState(
+    new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+  );
 
   useEffect(() => {
+    setLoading(true);
+    const qs = `from=${fromDate}&to=${toDate}`;
     Promise.all([
-      fetch("/api/reports/pnl").then((r) => r.json()).catch(() => null),
+      fetch(`/api/reports/pnl?${qs}`).then((r) => r.json()).catch(() => null),
       fetch("/api/reports/cashflow").then((r) => r.json()).catch(() => null),
-      fetch("/api/reports/tax").then((r) => r.json()).catch(() => null),
-    ]).then(([p, c, t]) => {
+      fetch(`/api/reports/tax?${qs}`).then((r) => r.json()).catch(() => null),
+      fetch("/api/reports/aging").then((r) => r.json()).catch(() => null),
+    ]).then(([p, c, t, a]) => {
       setPnl(p);
       setCashFlow(c);
       setTax(t);
+      setAging(a);
       setLoading(false);
     });
-  }, []);
+  }, [fromDate, toDate]);
 
   const downloadCSV = () => {
-    window.open("/api/reports/pnl/csv", "_blank");
+    window.open(`/api/reports/pnl/csv?from=${fromDate}&to=${toDate}`, "_blank");
     toast("Downloading P&L CSV...", "info");
   };
 
@@ -113,6 +146,7 @@ export default function ReportsPage() {
     { id: "pnl", label: "Profit & Loss", icon: <BarChart3 size={16} /> },
     { id: "cashflow", label: "Cash Flow", icon: <TrendingUp size={16} /> },
     { id: "tax", label: "GST Summary", icon: <Calculator size={16} /> },
+    { id: "aging", label: "Aging", icon: <Landmark size={16} /> },
   ];
 
   // P&L combined chart data
@@ -164,6 +198,32 @@ export default function ReportsPage() {
             {t.icon} {t.label}
           </button>
         ))}
+      </div>
+
+      {/* Date Range Picker */}
+      <div style={{
+        display: "flex", gap: 12, marginBottom: 20, alignItems: "center",
+        padding: "10px 16px", background: "var(--bg-card)", borderRadius: 10,
+        border: "1px solid var(--border-color)", width: "fit-content",
+      }}>
+        <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600 }}>Period:</span>
+        <input
+          type="date" value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+          style={{
+            background: "var(--bg-secondary)", border: "1px solid var(--border-color)",
+            borderRadius: 6, padding: "4px 8px", color: "var(--text-primary)", fontSize: 13,
+          }}
+        />
+        <span style={{ color: "var(--text-tertiary)" }}>→</span>
+        <input
+          type="date" value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+          style={{
+            background: "var(--bg-secondary)", border: "1px solid var(--border-color)",
+            borderRadius: 6, padding: "4px 8px", color: "var(--text-primary)", fontSize: 13,
+          }}
+        />
       </div>
 
       {loading ? (
@@ -415,6 +475,78 @@ export default function ReportsPage() {
                   </div>
                 </div>
               </div>
+            </>
+          )}
+
+          {/* Aging Tab */}
+          {tab === "aging" && aging && (
+            <>
+              <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(5, 1fr)", marginBottom: 24 }}>
+                {[
+                  { label: "Current", value: aging.buckets.current, color: "#22C55E" },
+                  { label: "1-30 Days", value: aging.buckets.d1_30, color: "#F59E0B" },
+                  { label: "31-60 Days", value: aging.buckets.d31_60, color: "#F97316" },
+                  { label: "61-90 Days", value: aging.buckets.d61_90, color: "#EF4444" },
+                  { label: "90+ Days", value: aging.buckets.d90_plus, color: "#DC2626" },
+                ].map((b) => (
+                  <div key={b.label} className="kpi-card" style={{ borderColor: `${b.color}30` }}>
+                    <div className="kpi-label">{b.label}</div>
+                    <div className="kpi-value" style={{ fontSize: 20, color: b.color }}>{fmt(b.value)}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{
+                padding: "16px 20px", marginBottom: 16, background: "var(--bg-card)",
+                borderRadius: 10, border: "1px solid var(--border-color)",
+                display: "flex", justifyContent: "space-between",
+              }}>
+                <span style={{ fontSize: 14 }}><strong>{aging.invoiceCount}</strong> outstanding invoices</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: "#F59E0B" }}>Total: {fmt(aging.totalOutstanding)}</span>
+              </div>
+
+              {aging.items.length > 0 && (
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Invoice</th>
+                        <th>Client</th>
+                        <th>Due Date</th>
+                        <th style={{ textAlign: "right" }}>Total</th>
+                        <th style={{ textAlign: "right" }}>Paid</th>
+                        <th style={{ textAlign: "right" }}>Balance</th>
+                        <th style={{ textAlign: "center" }}>Days Overdue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {aging.items.map((item) => (
+                        <tr key={item.id}>
+                          <td style={{ fontWeight: 600 }}>{item.invoiceNumber}</td>
+                          <td>{item.clientName}</td>
+                          <td>{new Date(item.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</td>
+                          <td style={{ textAlign: "right" }}>{fmt(item.total)}</td>
+                          <td style={{ textAlign: "right", color: "var(--accent-green)" }}>{fmt(item.paid)}</td>
+                          <td style={{ textAlign: "right", fontWeight: 700 }}>{fmt(item.balance)}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <span style={{
+                              padding: "2px 8px", borderRadius: 4, fontSize: 12, fontWeight: 600,
+                              background: item.daysOverdue === 0 ? "rgba(34,197,94,0.15)" :
+                                item.daysOverdue <= 30 ? "rgba(245,158,11,0.15)" :
+                                  item.daysOverdue <= 60 ? "rgba(249,115,22,0.15)" : "rgba(239,68,68,0.15)",
+                              color: item.daysOverdue === 0 ? "#22C55E" :
+                                item.daysOverdue <= 30 ? "#F59E0B" :
+                                  item.daysOverdue <= 60 ? "#F97316" : "#EF4444",
+                            }}>
+                              {item.daysOverdue === 0 ? "Current" : `${item.daysOverdue}d`}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </>
           )}
         </>
