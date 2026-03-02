@@ -1,0 +1,197 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Receipt, Calendar, Building2, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
+
+interface VendorTDS {
+  vendor: string;
+  totalAmount: number;
+  tdsSection: string;
+  tdsRate: number;
+  tdsAmount: number;
+  netPayable: number;
+  transactions: number;
+}
+
+interface TDSData {
+  quarter: string;
+  fiscalYear: string;
+  summary: {
+    totalGross: number;
+    totalTDS: number;
+    totalNet: number;
+    vendorCount: number;
+  };
+  vendors: VendorTDS[];
+  quarters: { quarter: string; months: string; dueDate: string }[];
+  currentQuarter: { quarter: string };
+}
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+
+export default function TDSPage() {
+  const [data, setData] = useState<TDSData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedQ, setSelectedQ] = useState("");
+
+  async function load(q?: string) {
+    setLoading(true);
+    try {
+      const qs = q ? `?quarter=${q}` : "";
+      const res = await fetch(`/api/tds${qs}`);
+      const d = await res.json();
+      setData(d);
+      if (!q) setSelectedQ(d.currentQuarter?.quarter || "Q1");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  function changeQuarter(q: string) {
+    setSelectedQ(q);
+    load(q);
+  }
+
+  if (loading || !data) {
+    return (
+      <div>
+        <div className="page-header"><h2><Receipt size={24} /> TDS Compliance</h2></div>
+        <div style={{ textAlign: "center", padding: 60, color: "var(--text-secondary)" }}>Loading TDS data...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Receipt size={24} /> TDS Compliance
+          </h2>
+          <p>{data.fiscalYear} — Tax Deducted at Source</p>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {data.quarters.map((q) => (
+            <button
+              key={q.quarter}
+              onClick={() => changeQuarter(q.quarter)}
+              className={selectedQ === q.quarter ? "btn btn-primary" : "btn btn-secondary"}
+              style={{ fontSize: 12, padding: "6px 14px" }}
+            >
+              {q.quarter} ({q.months})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 24 }}>
+        <div className="kpi-card">
+          <div className="kpi-label">Gross Payments</div>
+          <div className="kpi-value" style={{ fontSize: 22 }}>{fmt(data.summary.totalGross)}</div>
+        </div>
+        <div className="kpi-card amber">
+          <div className="kpi-label">TDS Deducted</div>
+          <div className="kpi-value" style={{ fontSize: 22 }}>{fmt(data.summary.totalTDS)}</div>
+        </div>
+        <div className="kpi-card green">
+          <div className="kpi-label">Net Payable</div>
+          <div className="kpi-value" style={{ fontSize: 22 }}>{fmt(data.summary.totalNet)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Vendors</div>
+          <div className="kpi-value" style={{ fontSize: 28 }}>{data.summary.vendorCount}</div>
+        </div>
+      </div>
+
+      {/* Filing Status */}
+      <div style={{
+        padding: "14px 20px", marginBottom: 20, background: "var(--bg-card)",
+        borderRadius: 10, border: "1px solid var(--border-color)",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Calendar size={16} />
+          <span style={{ fontSize: 13 }}>
+            Filing due: <strong>{data.quarters.find((q) => q.quarter === selectedQ)?.dueDate || "—"}</strong>
+          </span>
+        </div>
+        <span style={{
+          padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700,
+          background: "rgba(234,179,8,0.15)", color: "#F59E0B",
+        }}>
+          PENDING
+        </span>
+      </div>
+
+      {/* Vendor-wise TDS Table */}
+      {data.vendors.length === 0 ? (
+        <div style={{
+          textAlign: "center", padding: 60, background: "var(--bg-card)",
+          borderRadius: 16, border: "1px solid var(--border-color)",
+        }}>
+          <CheckCircle2 size={40} style={{ color: "#22C55E", marginBottom: 12 }} />
+          <h3 style={{ margin: "0 0 8px" }}>No TDS-applicable payments this quarter</h3>
+          <p style={{ color: "var(--text-secondary)", margin: 0 }}>
+            Professional services, rent, and contractor payments will appear here
+          </p>
+        </div>
+      ) : (
+        <div className="table-container">
+          <div className="table-header">
+            <h3><Building2 size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />Vendor-wise TDS Breakdown</h3>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Section</th>
+                <th style={{ textAlign: "center" }}>Txns</th>
+                <th style={{ textAlign: "right" }}>Gross Amount</th>
+                <th style={{ textAlign: "center" }}>Rate</th>
+                <th style={{ textAlign: "right" }}>TDS Amount</th>
+                <th style={{ textAlign: "right" }}>Net Payable</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.vendors.map((v, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: 600 }}>{v.vendor}</td>
+                  <td>
+                    <span style={{
+                      padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600,
+                      background: "rgba(99,102,241,0.12)", color: "#818CF8",
+                    }}>
+                      {v.tdsSection}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "center" }}>{v.transactions}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(v.totalAmount)}</td>
+                  <td style={{ textAlign: "center" }}>
+                    <span style={{ fontWeight: 700, color: "#F59E0B" }}>{v.tdsRate}%</span>
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: "#EF4444" }}>{fmt(v.tdsAmount)}</td>
+                  <td style={{ textAlign: "right", fontWeight: 600 }}>{fmt(v.netPayable)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 800, fontSize: 14 }}>
+                <td colSpan={3}>Total</td>
+                <td style={{ textAlign: "right" }}>{fmt(data.summary.totalGross)}</td>
+                <td></td>
+                <td style={{ textAlign: "right", color: "#EF4444" }}>{fmt(data.summary.totalTDS)}</td>
+                <td style={{ textAlign: "right" }}>{fmt(data.summary.totalNet)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
