@@ -27,6 +27,7 @@ import {
   CalendarDays,
   ArrowRightLeft,
   Users,
+  BookOpen,
 } from "lucide-react";
 import CopilotPanel from "@/components/copilot-panel";
 
@@ -43,6 +44,7 @@ const navItems = [
   { href: "/budgets", label: "Budgets", icon: Target },
   { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/payroll", label: "Payroll", icon: Users },
+  { href: "/accounting", label: "Accounting", icon: BookOpen },
   { href: "/tds", label: "TDS", icon: Receipt },
   { href: "/gst", label: "GST Returns", icon: FileText },
   { href: "/fx", label: "FX Rates", icon: ArrowRightLeft },
