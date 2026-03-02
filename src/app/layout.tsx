@@ -22,6 +22,7 @@ import {
   Target,
   Store,
   Repeat,
+  GitMerge,
 } from "lucide-react";
 import CopilotPanel from "@/components/copilot-panel";
 
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/vendors", label: "Vendors", icon: Store },
   { href: "/bank", label: "Bank", icon: Building2 },
   { href: "/import", label: "Import", icon: Download },
+  { href: "/reconciliation", label: "Reconcile", icon: GitMerge },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/budgets", label: "Budgets", icon: Target },
   { href: "/recurring", label: "Recurring", icon: Repeat },
