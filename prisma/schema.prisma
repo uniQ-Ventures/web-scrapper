@@ -27,6 +27,8 @@ model Organization {
   accounts   Account[]
   categories ExpenseCategory[]
   budgets    BudgetThreshold[]
+  vendors    Vendor[]
+  recurringExpenses RecurringExpense[]
 }
 
 model User {
@@ -45,10 +47,13 @@ model User {
   revenues   Revenue[]
   accounts   Account[]
   clients    Client[]
-  categories       ExpenseCategory[]
-  bankAccounts     BankAccount[]
-  bankTransactions BankTransaction[]
-  importBatches    ImportBatch[]
+  categories         ExpenseCategory[]
+  bankAccounts       BankAccount[]
+  bankTransactions   BankTransaction[]
+  importBatches      ImportBatch[]
+  vendors            Vendor[]
+  recurringExpenses  RecurringExpense[]
+  payments           Payment[]
 }
 
 model Account {
@@ -115,6 +120,7 @@ model Invoice {
   clientId       String?
   client         Client?          @relation(fields: [clientId], references: [id])
   lineItems      InvoiceLineItem[]
+  payments       Payment[]
 }
 
 model InvoiceLineItem {
@@ -174,6 +180,8 @@ model Expense {
   organization   Organization?    @relation(fields: [organizationId], references: [id])
   categoryId     String?
   category       ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  vendorId       String?
+  vendorEntity   Vendor?          @relation(fields: [vendorId], references: [id])
   accountId      String?
   account        Account?         @relation(fields: [accountId], references: [id])
 }
@@ -271,4 +279,70 @@ model ImportBatch {
   userId        String
   user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions  BankTransaction[]
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  amount        Decimal  @db.Decimal(15, 2)
+  date          DateTime @default(now())
+  method        String   @default("bank_transfer") // bank_transfer | upi | cash | cheque | card
+  reference     String?                            // UTR, UPI ref, cheque number
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Vendor {
+  id            String   @id @default(uuid())
+  name          String
+  email         String?
+  phone         String?
+  company       String?
+  gstNumber     String?
+  panNumber     String?
+  bankName      String?
+  bankAccount   String?
+  bankIfsc      String?
+  paymentTerms  Int      @default(30)  // days
+  address       String?  @db.Text
+  notes         String?  @db.Text
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  expenses       Expense[]
+
+  @@unique([userId, name])
+}
+
+model RecurringExpense {
+  id          String   @id @default(uuid())
+  description String
+  amount      Decimal  @db.Decimal(15, 2)
+  currency    String   @default("INR")
+  frequency   String   @default("monthly") // monthly | quarterly | yearly | weekly
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  nextDueDate DateTime
+  lastCreated DateTime?
+  isActive    Boolean  @default(true)
+  vendor      String?
+  categoryId  String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 }
