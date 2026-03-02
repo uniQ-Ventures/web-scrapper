@@ -40,6 +40,7 @@ const navItems = [
   { href: "/budgets", label: "Budgets", icon: Target },
   { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/tds", label: "TDS", icon: Receipt },
+  { href: "/gst", label: "GST Returns", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
