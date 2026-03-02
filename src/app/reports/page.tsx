@@ -11,6 +11,21 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/toast";
 import { SkeletonTable, SkeletonCard } from "@/components/skeleton";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 type Tab = "pnl" | "cashflow" | "tax";
 
@@ -37,6 +52,37 @@ interface TaxData {
   expenseCount: number;
 }
 
+const CHART_COLORS = ["#6366F1", "#A855F7", "#EC4899", "#F43F5E", "#F59E0B", "#22C55E", "#3B82F6", "#14B8A6"];
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+
+const fmtShort = (n: number) => {
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
+  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+  if (n >= 1000) return `₹${(n / 1000).toFixed(0)}K`;
+  return `₹${n}`;
+};
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: "var(--bg-card)", border: "1px solid var(--border-color)",
+      borderRadius: 8, padding: "10px 14px", boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+    }}>
+      <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>{label}</p>
+      {payload.map((p: any) => (
+        <p key={p.name} style={{ margin: 0, fontSize: 13, fontWeight: 600, color: p.color }}>
+          {p.name}: {fmt(p.value)}
+        </p>
+      ))}
+    </div>
+  );
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 export default function ReportsPage() {
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("pnl");
@@ -58,9 +104,6 @@ export default function ReportsPage() {
     });
   }, []);
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
-
   const downloadCSV = () => {
     window.open("/api/reports/pnl/csv", "_blank");
     toast("Downloading P&L CSV...", "info");
@@ -71,6 +114,18 @@ export default function ReportsPage() {
     { id: "cashflow", label: "Cash Flow", icon: <TrendingUp size={16} /> },
     { id: "tax", label: "GST Summary", icon: <Calculator size={16} /> },
   ];
+
+  // P&L combined chart data
+  const pnlChartData = pnl ? [
+    ...pnl.revenue.map((r) => ({ name: r.label, type: "Revenue", amount: r.amount })),
+    ...pnl.expenses.map((e) => ({ name: e.label, type: "Expense", amount: e.amount })),
+  ] : [];
+
+  // Tax pie data
+  const taxPieData = tax ? [
+    { name: "Output Tax", value: tax.outputTax, color: "#F59E0B" },
+    { name: "Input Credit", value: tax.inputTaxCredit, color: "#22C55E" },
+  ] : [];
 
   return (
     <div>
@@ -139,58 +194,60 @@ export default function ReportsPage() {
                 </div>
                 <div className="kpi-card amber">
                   <div className="kpi-label">Profit Margin</div>
-                  <div className="kpi-value" style={{ fontSize: 22 }}>
-                    {pnl.profitMargin.toFixed(1)}%
-                  </div>
+                  <div className="kpi-value" style={{ fontSize: 22 }}>{pnl.profitMargin.toFixed(1)}%</div>
                 </div>
               </div>
 
-              {/* Revenue breakdown */}
+              {/* Revenue vs Expenses Chart */}
               <div className="section-grid" style={{ marginBottom: 24 }}>
-                <div className="table-container">
-                  <div className="table-header">
+                <div className="chart-container">
+                  <div className="chart-header">
                     <h3><DollarSign size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />Revenue Breakdown</h3>
                   </div>
-                  <table>
-                    <thead><tr><th>Source</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
-                    <tbody>
-                      {pnl.revenue.length > 0 ? pnl.revenue.map((r) => (
-                        <tr key={r.label}>
-                          <td>{r.label}</td>
-                          <td style={{ textAlign: "right", fontWeight: 600, color: "var(--accent-green)" }}>{fmt(r.amount)}</td>
-                        </tr>
-                      )) : (
-                        <tr><td colSpan={2} style={{ textAlign: "center", color: "var(--text-muted)", padding: 20 }}>No revenue data</td></tr>
-                      )}
-                      <tr style={{ fontWeight: 700, borderTop: "2px solid var(--border-color)" }}>
-                        <td>Total</td>
-                        <td style={{ textAlign: "right" }}>{fmt(pnl.totalRevenue)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  {pnl.revenue.length > 0 ? (
+                    <div style={{ width: "100%", height: 240 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={pnl.revenue} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 11, fill: "var(--text-secondary)" }} tickFormatter={fmtShort} axisLine={false} tickLine={false} />
+                          <YAxis type="category" dataKey="label" tick={{ fontSize: 12, fill: "var(--text-primary)" }} width={100} axisLine={false} tickLine={false} />
+                          <Tooltip content={<ChartTooltip />} />
+                          <Bar dataKey="amount" name="Revenue" fill="#22C55E" radius={[0, 6, 6, 0]} barSize={20} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="empty-state" style={{ padding: 40 }}>
+                      <p style={{ color: "var(--text-muted)" }}>No revenue data</p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="table-container">
-                  <div className="table-header">
+                <div className="chart-container">
+                  <div className="chart-header">
                     <h3><Landmark size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />Expense Breakdown</h3>
                   </div>
-                  <table>
-                    <thead><tr><th>Category</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
-                    <tbody>
-                      {pnl.expenses.length > 0 ? pnl.expenses.map((e) => (
-                        <tr key={e.label}>
-                          <td>{e.label}</td>
-                          <td style={{ textAlign: "right", fontWeight: 600, color: "var(--accent-red)" }}>{fmt(e.amount)}</td>
-                        </tr>
-                      )) : (
-                        <tr><td colSpan={2} style={{ textAlign: "center", color: "var(--text-muted)", padding: 20 }}>No expense data</td></tr>
-                      )}
-                      <tr style={{ fontWeight: 700, borderTop: "2px solid var(--border-color)" }}>
-                        <td>Total</td>
-                        <td style={{ textAlign: "right" }}>{fmt(pnl.totalExpenses)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  {pnl.expenses.length > 0 ? (
+                    <div style={{ width: "100%", height: 240 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={pnl.expenses} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 11, fill: "var(--text-secondary)" }} tickFormatter={fmtShort} axisLine={false} tickLine={false} />
+                          <YAxis type="category" dataKey="label" tick={{ fontSize: 12, fill: "var(--text-primary)" }} width={100} axisLine={false} tickLine={false} />
+                          <Tooltip content={<ChartTooltip />} />
+                          <Bar dataKey="amount" name="Expense" radius={[0, 6, 6, 0]} barSize={20}>
+                            {pnl.expenses.map((_: unknown, i: number) => (
+                              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="empty-state" style={{ padding: 40 }}>
+                      <p style={{ color: "var(--text-muted)" }}>No expense data</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -216,10 +273,45 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="table-container">
-                <div className="table-header">
-                  <h3>Monthly Cash Flow Projection</h3>
+              {/* Cash Flow AreaChart */}
+              <div className="chart-container" style={{ marginBottom: 24 }}>
+                <div className="chart-header">
+                  <h3>Monthly Cash Flow</h3>
                 </div>
+                {cashFlow.projections.length > 0 ? (
+                  <div style={{ width: "100%", height: 280 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={cashFlow.projections} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="inflowGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22C55E" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="outflowGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#F43F5E" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#F43F5E" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--text-secondary)" }} tickFormatter={(v) => v.split(" ")[0]} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: "var(--text-secondary)" }} tickFormatter={fmtShort} axisLine={false} tickLine={false} />
+                        <Tooltip content={<ChartTooltip />} />
+                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                        <Area type="monotone" dataKey="inflow" name="Inflow" stroke="#22C55E" strokeWidth={2} fill="url(#inflowGrad)" dot={{ r: 3, fill: "#22C55E", strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="outflow" name="Outflow" stroke="#F43F5E" strokeWidth={2} fill="url(#outflowGrad)" dot={{ r: 3, fill: "#F43F5E", strokeWidth: 0 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="empty-state" style={{ padding: 40 }}>
+                    <p style={{ color: "var(--text-muted)" }}>No projections available</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Cash Flow Table */}
+              <div className="table-container">
+                <div className="table-header"><h3>Monthly Breakdown</h3></div>
                 <table>
                   <thead>
                     <tr>
@@ -260,14 +352,9 @@ export default function ReportsPage() {
                   <div className="kpi-value" style={{ fontSize: 22 }}>{fmt(tax.inputTaxCredit)}</div>
                   <div style={{ fontSize: 12, color: "var(--text-muted)" }}>From {tax.expenseCount} expenses</div>
                 </div>
-                <div className="kpi-card" style={{
-                  borderColor: tax.netPayable > 0 ? "rgba(239,68,68,0.2)" : "rgba(34,197,94,0.2)",
-                }}>
+                <div className="kpi-card" style={{ borderColor: tax.netPayable > 0 ? "rgba(239,68,68,0.2)" : "rgba(34,197,94,0.2)" }}>
                   <div className="kpi-label">Net GST Payable</div>
-                  <div className="kpi-value" style={{
-                    fontSize: 22,
-                    color: tax.netPayable > 0 ? "var(--accent-red)" : "var(--accent-green)",
-                  }}>
+                  <div className="kpi-value" style={{ fontSize: 22, color: tax.netPayable > 0 ? "var(--accent-red)" : "var(--accent-green)" }}>
                     {fmt(tax.netPayable)}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
@@ -276,22 +363,55 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="table-container" style={{ padding: 24 }}>
-                <h3 style={{ marginBottom: 16 }}>GST Computation</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border-color)" }}>
-                    <span>Output Tax (on sales)</span>
-                    <span style={{ fontWeight: 600 }}>{fmt(tax.outputTax)}</span>
+              <div className="section-grid">
+                {/* GST Pie Chart */}
+                <div className="chart-container">
+                  <div className="chart-header"><h3>GST Breakdown</h3></div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: 200, height: 200 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={taxPieData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={4}
+                            strokeWidth={0}
+                          >
+                            {taxPieData.map((entry, i) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => fmt(Number(value))} />
+                          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border-color)" }}>
-                    <span>Less: Input Tax Credit</span>
-                    <span style={{ fontWeight: 600, color: "var(--accent-green)" }}>- {fmt(tax.inputTaxCredit)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "16px 0", fontSize: 18, fontWeight: 800 }}>
-                    <span>Net GST Payable</span>
-                    <span style={{ color: tax.netPayable > 0 ? "var(--accent-red)" : "var(--accent-green)" }}>
-                      {fmt(tax.netPayable)}
-                    </span>
+                </div>
+
+                {/* GST Computation */}
+                <div className="table-container" style={{ padding: 24 }}>
+                  <h3 style={{ marginBottom: 16 }}>GST Computation</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border-color)" }}>
+                      <span>Output Tax (on sales)</span>
+                      <span style={{ fontWeight: 600 }}>{fmt(tax.outputTax)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border-color)" }}>
+                      <span>Less: Input Tax Credit</span>
+                      <span style={{ fontWeight: 600, color: "var(--accent-green)" }}>- {fmt(tax.inputTaxCredit)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "16px 0", fontSize: 18, fontWeight: 800 }}>
+                      <span>Net GST Payable</span>
+                      <span style={{ color: tax.netPayable > 0 ? "var(--accent-red)" : "var(--accent-green)" }}>
+                        {fmt(tax.netPayable)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

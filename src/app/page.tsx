@@ -11,10 +11,25 @@ import {
   Minus,
   DollarSign,
   CreditCard,
-  PieChart,
+  PieChart as PieChartIcon,
   BarChart3,
 } from "lucide-react";
 import { SkeletonKPI } from "@/components/skeleton";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
+  Cell,
+  PieChart,
+  Pie,
+} from "recharts";
 
 interface DashboardData {
   monthlyRevenue: number;
@@ -23,8 +38,8 @@ interface DashboardData {
   outstandingInvoices: { count: number; total: number };
   totalExpensesThisMonth: number;
   revenueGrowth: number;
-  runway: { cashInBank: number; projectedRunOutDate: string | null };
   burnRateDetails: { trend: string; average3Month: number };
+  runway: { projectedRunOutDate?: string; cashInBank: number };
   revenueDetails: { currentARR: number; history: { month: string; amount: number }[] };
 }
 
@@ -38,6 +53,51 @@ interface PnLData {
   expenses: { label: string; amount: number }[];
   totalExpenses: number;
 }
+
+const CHART_COLORS = ["#6366F1", "#A855F7", "#EC4899", "#F59E0B", "#22C55E", "#3B82F6"];
+
+const formatINR = (n: number) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n);
+
+const formatShort = (n: number) => {
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
+  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+  if (n >= 1000) return `₹${(n / 1000).toFixed(0)}K`;
+  return `₹${n}`;
+};
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-color)",
+        borderRadius: 8,
+        padding: "10px 14px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+      }}
+    >
+      <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+        {label}
+      </p>
+      {payload.map((p: any) => (
+        <p
+          key={p.name}
+          style={{ margin: 0, fontSize: 13, fontWeight: 600, color: p.color }}
+        >
+          {p.name}: {formatINR(p.value)}
+        </p>
+      ))}
+    </div>
+  );
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -58,13 +118,6 @@ export default function DashboardPage() {
     }).catch(() => setLoading(false));
   }, []);
 
-  const formatCurrency = (n: number) =>
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(n);
-
   if (loading) {
     return (
       <div>
@@ -82,15 +135,15 @@ export default function DashboardPage() {
   const kpis = [
     {
       label: "Monthly Revenue",
-      value: formatCurrency(data?.monthlyRevenue ?? 0),
+      value: formatINR(data?.monthlyRevenue ?? 0),
       change: data?.revenueGrowth ?? 0,
       color: "green" as const,
       icon: <TrendingUp size={20} />,
-      sub: `ARR ${formatCurrency(data?.revenueDetails?.currentARR ?? 0)}`,
+      sub: `ARR ${formatINR(data?.revenueDetails?.currentARR ?? 0)}`,
     },
     {
       label: "Burn Rate",
-      value: formatCurrency(data?.burnRate ?? 0),
+      value: formatINR(data?.burnRate ?? 0),
       change: null,
       color: "red" as const,
       icon: <Flame size={20} />,
@@ -98,10 +151,7 @@ export default function DashboardPage() {
     },
     {
       label: "Runway",
-      value:
-        data?.runwayMonths === Infinity
-          ? "∞"
-          : `${data?.runwayMonths ?? 0} mo`,
+      value: data?.runwayMonths === Infinity ? "∞" : `${data?.runwayMonths ?? 0} mo`,
       change: null,
       color: (data?.runwayMonths ?? 0) > 12
         ? "green" as const
@@ -119,21 +169,21 @@ export default function DashboardPage() {
       change: null,
       color: "amber" as const,
       icon: <FileText size={20} />,
-      sub: formatCurrency(data?.outstandingInvoices?.total ?? 0),
+      sub: formatINR(data?.outstandingInvoices?.total ?? 0),
     },
   ];
 
   const history = data?.revenueDetails?.history ?? [];
-  const maxAmount = Math.max(...history.map((h) => h.amount), 1);
-
-  // Cash flow chart data
   const cfProjections = cashFlow?.projections ?? [];
-  const cfMax = Math.max(...cfProjections.map((p) => Math.max(p.inflow, p.outflow)), 1);
-
-  // Expense categories for pie chart
-  const expenseCategories = (pnl?.expenses ?? []).slice(0, 5);
+  const expenseCategories = (pnl?.expenses ?? []).slice(0, 6);
   const expTotal = pnl?.totalExpenses || 1;
-  const categoryColors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6"];
+
+  // Pie chart data
+  const pieData = expenseCategories.map((cat, i) => ({
+    name: cat.label,
+    value: cat.amount,
+    color: CHART_COLORS[i % CHART_COLORS.length],
+  }));
 
   return (
     <div>
@@ -151,24 +201,12 @@ export default function DashboardPage() {
             <div className="kpi-value">{kpi.value}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {kpi.change !== null && (
-                <span
-                  className={`kpi-change ${kpi.change > 0 ? "up" : kpi.change < 0 ? "down" : "neutral"}`}
-                >
-                  {kpi.change > 0 ? (
-                    <ArrowUpRight size={12} />
-                  ) : kpi.change < 0 ? (
-                    <ArrowDownRight size={12} />
-                  ) : (
-                    <Minus size={12} />
-                  )}
+                <span className={`kpi-change ${kpi.change > 0 ? "up" : kpi.change < 0 ? "down" : "neutral"}`}>
+                  {kpi.change > 0 ? <ArrowUpRight size={12} /> : kpi.change < 0 ? <ArrowDownRight size={12} /> : <Minus size={12} />}
                   {Math.abs(kpi.change)}%
                 </span>
               )}
-              <span
-                style={{ fontSize: 12, color: "var(--text-muted)" }}
-              >
-                {kpi.sub}
-              </span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{kpi.sub}</span>
             </div>
           </div>
         ))}
@@ -178,21 +216,26 @@ export default function DashboardPage() {
       <div className="section-grid">
         <div className="chart-container">
           <div className="chart-header">
-            <h3>Revenue Trend</h3>
+            <h3><DollarSign size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />Revenue Trend</h3>
             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Last 6 months</span>
           </div>
           {history.length > 0 ? (
-            <div className="chart-bars">
-              {history.map((h) => (
-                <div key={h.month} className="chart-bar-wrapper">
-                  <div
-                    className="chart-bar revenue"
-                    style={{ height: `${Math.max((h.amount / maxAmount) * 100, 3)}%` }}
-                    title={formatCurrency(h.amount)}
-                  />
-                  <span className="chart-bar-label">{h.month.slice(5)}</span>
-                </div>
-              ))}
+            <div style={{ width: "100%", height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={history} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--text-secondary)" }} tickFormatter={(v) => v.slice(5)} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--text-secondary)" }} tickFormatter={formatShort} axisLine={false} tickLine={false} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area type="monotone" dataKey="amount" name="Revenue" stroke="#6366F1" strokeWidth={2.5} fill="url(#revenueGrad)" dot={{ r: 4, fill: "#6366F1", strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <div className="empty-state" style={{ padding: 40 }}>
@@ -218,14 +261,12 @@ export default function DashboardPage() {
             </a>
           </div>
           <div style={{
-            marginTop: 24,
-            padding: 16,
-            background: "var(--bg-input)",
-            borderRadius: "var(--radius-md)",
+            marginTop: 24, padding: 16,
+            background: "var(--bg-input)", borderRadius: "var(--radius-md)",
           }}>
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>CASH IN BANK</p>
             <p style={{ fontSize: 24, fontWeight: 800, letterSpacing: -1 }}>
-              {formatCurrency(data?.runway?.cashInBank ?? 0)}
+              {formatINR(data?.runway?.cashInBank ?? 0)}
             </p>
           </div>
         </div>
@@ -235,41 +276,23 @@ export default function DashboardPage() {
       <div className="section-grid" style={{ marginTop: 24 }}>
         <div className="chart-container">
           <div className="chart-header">
-            <h3><BarChart3 size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />Cash Flow Projection</h3>
+            <h3><BarChart3 size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />Cash Flow Projection</h3>
             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Next 6 months</span>
           </div>
           {cfProjections.length > 0 ? (
-            <>
-              <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
-                <span style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 2, background: "var(--accent-green)", display: "inline-block" }} />
-                  Inflow
-                </span>
-                <span style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 2, background: "var(--accent-red)", display: "inline-block" }} />
-                  Outflow
-                </span>
-              </div>
-              <div className="chart-bars">
-                {cfProjections.map((p) => (
-                  <div key={p.month} className="chart-bar-wrapper" style={{ gap: 4 }}>
-                    <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: "100%" }}>
-                      <div
-                        className="chart-bar revenue"
-                        style={{ height: `${Math.max((p.inflow / cfMax) * 100, 3)}%`, width: 16 }}
-                        title={`Inflow: ${formatCurrency(p.inflow)}`}
-                      />
-                      <div
-                        className="chart-bar expense"
-                        style={{ height: `${Math.max((p.outflow / cfMax) * 100, 3)}%`, width: 16 }}
-                        title={`Outflow: ${formatCurrency(p.outflow)}`}
-                      />
-                    </div>
-                    <span className="chart-bar-label">{p.month.split(" ")[0]}</span>
-                  </div>
-                ))}
-              </div>
-            </>
+            <div style={{ width: "100%", height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={cfProjections} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--text-secondary)" }} tickFormatter={(v) => v.split(" ")[0]} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--text-secondary)" }} tickFormatter={formatShort} axisLine={false} tickLine={false} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="inflow" name="Inflow" fill="#22C55E" radius={[4, 4, 0, 0]} barSize={16} />
+                  <Bar dataKey="outflow" name="Outflow" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <div className="empty-state" style={{ padding: 40 }}>
               <BarChart3 size={32} style={{ opacity: 0.3 }} />
@@ -280,40 +303,51 @@ export default function DashboardPage() {
 
         <div className="chart-container">
           <div className="chart-header">
-            <h3><PieChart size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />Top Expenses</h3>
+            <h3><PieChartIcon size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />Top Expenses</h3>
             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>This month</span>
           </div>
-          {expenseCategories.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {expenseCategories.map((cat, i) => {
-                const pct = Math.round((cat.amount / expTotal) * 100);
-                return (
-                  <div key={cat.label}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 13 }}>
-                      <span style={{ fontWeight: 500 }}>{cat.label}</span>
-                      <span style={{ color: "var(--text-secondary)" }}>{formatCurrency(cat.amount)}</span>
+          {pieData.length > 0 ? (
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <div style={{ width: 140, height: 140, flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={35}
+                      outerRadius={60}
+                      paddingAngle={3}
+                      strokeWidth={0}
+                    >
+                      {pieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatINR(Number(value))} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                {expenseCategories.map((cat, i) => {
+                  const pct = Math.round((cat.amount / expTotal) * 100);
+                  return (
+                    <div key={cat.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: CHART_COLORS[i % CHART_COLORS.length], display: "inline-block", flexShrink: 0 }} />
+                        <span style={{ fontWeight: 500 }}>{cat.label}</span>
+                      </span>
+                      <span style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{pct}%</span>
                     </div>
-                    <div style={{
-                      height: 6,
-                      borderRadius: 3,
-                      background: "var(--bg-tertiary, rgba(255,255,255,0.06))",
-                      overflow: "hidden",
-                    }}>
-                      <div style={{
-                        height: "100%",
-                        width: `${pct}%`,
-                        borderRadius: 3,
-                        background: categoryColors[i % categoryColors.length],
-                        transition: "width 0.6s ease-out",
-                      }} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="empty-state" style={{ padding: 40 }}>
-              <PieChart size={32} style={{ opacity: 0.3 }} />
+              <PieChartIcon size={32} style={{ opacity: 0.3 }} />
               <p style={{ marginTop: 8 }}>No expenses this month</p>
             </div>
           )}

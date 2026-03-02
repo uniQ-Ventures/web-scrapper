@@ -1,197 +1,106 @@
-# Finance — Agent Instructions
+# 🎯 Agent Instructions — Finance Suite → UniQLabs Hub Ingestion
 
-> **Product**: Finance — Invoicing, Expense Tracking & Runway
-> **Status**: 🟢 95% — Feature complete (invoicing, expenses, P&L, copilot)
-> **Priority**: NextAuth upgrade + production deployment
-> **Timebox**: MVP scaffold by Feb 20 | Functional by Feb 27
-> **Port**: 3008
+> **You are an AI agent responsible for making this a COMPLETE, PRODUCTION-GRADE FULL-STACK application and preparing it for ingestion into UniQLabs Hub.**
 
----
+## Critical Context
 
-## Context
+UniQLabs Hub assembles **full-stack applications** — not just frontends. Every module must include:
+- **Frontend** — React components (production-grade UI)
+- **Backend** — API routes with real business logic
+- **Database** — Prisma models with relationships
 
-Read these files first:
-- `README.md` — product brief with KPIs, queries, actions
-- `../ARCHITECTURE.md` — Layer 1 + Sidechains overview
-- `../TECH_STANDARDS.md` — stack standards (FOLLOW THIS EXACTLY)
-- `../THEME_STANDARDS.md` — use CSS variables from day one
-- `../MOBILE_STANDARDS.md` — build mobile-first from scratch
-- `../AGENT_HANDOFF_PROTOCOL.md` — status report format
-- `../heartbeat-protocol.md` — sidechain communication spec
-- `../MULTI_TENANT_ARCHITECTURE.md` — data spaces, orgId scoping, agent orchestration
-- `../DEPLOYMENT_ARCHITECTURE.md` — Vercel Pro deployment, shared DB, cron setup
+When this app gets ingested into the hub, its modules are used to **generate and deploy real working applications**.
+
+## Your Mission
+
+This application (`finance`) is a **Finance/Accounting** app with ~9,500 lines. Your job is to:
+
+1. **Audit** the full stack — frontend, backend APIs, database schema
+2. **Upgrade** everything to production quality
+3. **Produce a `blueprint.md`** describing the complete full-stack module breakdown
 
 ---
 
-## Stack (Non-Negotiable)
-
-```
-Next.js 15+ (App Router) + TypeScript
-PostgreSQL + Prisma ORM
-NextAuth.js (Google OAuth)
-Tailwind CSS + shadcn/ui + Lucide Icons
-Google Gemini — with multi-model abstraction
-Deploy to Vercel
-```
-
----
-
-## What to Build — MVP Features
-
-### Core: Invoicing
-- Create invoices (line items, tax/GST, discounts)
-- Invoice PDF generation
-- Track status: DRAFT → SENT → PAID → OVERDUE
-- Client management (name, email, billing address)
-- Send invoice via email (Resend)
-
-### Core: Expense Tracking
-- Log expenses (amount, category, date, receipt)
-- Categories: Salaries, Infrastructure, Marketing, Software, Office, Misc
-- Monthly/weekly expense summaries
-
-### Core: Revenue Tracking
-- Manual revenue entry or auto-from-invoices
-- MRR / ARR calculations
-- Revenue by client
-
-### Core: Runway Calculator
-- Cash in bank (manual entry)
-- Monthly burn rate (auto from expenses)
-- Runway = cash ÷ burn rate
-- Visual runway projection chart
-
-### Dashboard
-- Monthly revenue vs expenses (chart)
-- Current runway (months remaining)
-- Outstanding invoices (count + total)
-- Burn rate trend
-
-### Embedded Copilot (MANDATORY)
-
-Every product MUST have its own **embedded AI copilot chatbot** in the product UI. This is a core ecosystem principle.
-
-**What to build:**
-- Collapsible chat panel on the right side of the UI
-- Powered by Gemini (via multi-model AI abstraction layer)
-- Context-aware: knows about invoices, expenses, revenue, runway
-- Example queries:
-  - "What's our current runway?"
-  - "Show me overdue invoices"
-  - "How much did we spend on infrastructure this month?"
-  - "Create an invoice for [client] for $5,000"
-  - "What's our MRR trend?"
-  - "Compare this month's burn to last month"
-
-**No duplication rule:** The in-app copilot MUST use the same `/api/v1/copilot` endpoint that Founder OS calls. One implementation, two consumers (the UI + the orchestrator).
-
-### Founder OS Integration (bake in from the start)
-1. `GET /api/v1/plugin/manifest`
-2. `GET /api/v1/plugin/dashboard`
-3. `GET/POST /api/v1/copilot/*` endpoints
-4. Webhook events: `invoice.created`, `invoice.paid`, `expense.logged`, `runway.warning`
-
----
-
-## Prisma Schema Starter
-
-```prisma
-model Organization {
-  id        String     @id @default(uuid())
-  name      String
-  currency  String     @default("INR")
-  cashInBank Float     @default(0)
-  clients   Client[]
-  invoices  Invoice[]
-  expenses  Expense[]
-}
-
-model Client {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(...)
-  name           String
-  email          String?
-  address        String?      @db.Text
-  invoices       Invoice[]
-  createdAt      DateTime     @default(now())
-}
-
-model Invoice {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(...)
-  clientId       String
-  client         Client       @relation(...)
-  number         String       // INV-001
-  status         String       @default("DRAFT")
-  lineItems      String       @db.Text // JSON
-  subtotal       Float
-  taxRate        Float        @default(18) // GST
-  taxAmount      Float
-  total          Float
-  dueDate        DateTime?
-  paidAt         DateTime?
-  createdAt      DateTime     @default(now())
-}
-
-model Expense {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(...)
-  description    String
-  amount         Float
-  category       String
-  date           DateTime
-  receiptUrl     String?
-  createdAt      DateTime     @default(now())
-}
-```
-
----
-
-## Setup Commands
+## Step 1: Audit the Full Stack
 
 ```bash
-npx -y create-next-app@latest ./ --typescript --tailwind --eslint --app --src-dir --use-npm
-npm install @prisma/client @google/generative-ai next-auth lucide-react
-npm install -D prisma
-npx prisma init
+find src -type f -name "*.tsx" | head -40
+find src/app/api -name "route.ts" 2>/dev/null
+find src -name "*.routes.ts" -o -name "*.controller.ts" 2>/dev/null
+cat prisma/schema.prisma 2>/dev/null
 ```
 
----
+## Step 2: Upgrade to 100%
 
-## Key Principle: No Duplication
+### Frontend Quality
+- [ ] Sleek financial dashboards — proper currency formatting, number animations
+- [ ] Color-coded status badges (paid/pending/overdue)
+- [ ] Dark-mode compatible — CSS variables
+- [ ] Interactive — date range pickers, category filters, drill-down charts
+- [ ] Charts with `recharts` — cash flow, revenue vs expenses, category breakdown
 
-The standalone copilot chatbot in the UI MUST use the same underlying logic as the `/api/v1/copilot` endpoint. The UI calls the endpoint directly. Founder OS also calls the endpoint. One implementation, two consumers.
+### Backend Quality
+- [ ] Every API has **proper error handling**, input validation
+- [ ] Pagination, search, date-range filtering
+- [ ] Proper decimal handling for financial amounts
+- [ ] TypeScript types for all request/response
 
----
+### Database Quality
+- [ ] Prisma schema with proper relations, indexes
+- [ ] Decimal types for money fields
+- [ ] Enums (InvoiceStatus, ExpenseCategory, PaymentMethod)
+- [ ] Seed data with realistic financial transactions
 
-## Multi-Tenancy & Alignment
+### Expected Full-Stack Features
 
-Read `../MULTI_TENANT_ARCHITECTURE.md` — data spaces, orgId scoping, agent orchestration
-- `../DEPLOYMENT_ARCHITECTURE.md` — Vercel Pro deployment, shared DB, cron setup
+| Feature | Frontend | Backend | Database |
+|---------|----------|---------|----------|
+| **Finance Dashboard** | Revenue/expense/profit stats, runway, trending | `GET /api/dashboard/stats` | Aggregations |
+| **Invoice Manager** | Invoice list, create form, line items, PDF preview | `GET/POST/PATCH /api/invoices`, `POST /api/invoices/[id]/send` | Invoice, InvoiceItem, Client |
+| **Expense Tracker** | Categorized list, receipt upload, approval | `GET/POST /api/expenses`, `PATCH /api/expenses/[id]/approve` | Expense, ExpenseCategory, Receipt |
+| **Cash Flow** | Income vs expense chart, projection, runway | `GET /api/reports/cashflow` | Derived from transactions |
+| **P&L Report** | Revenue breakdown, expenses by category, net income | `GET /api/reports/pnl` | Derived from invoices + expenses |
+| **Budget & Forecast** | Budget vs actual, variance, projections | `GET/POST /api/budgets` | Budget, BudgetCategory |
+| **Accounts** | Chart of accounts, bank connections | `GET/POST /api/accounts` | Account, Transaction |
+| **Settings** | Currency, tax rates, fiscal year, categories | `GET/PATCH /api/settings` | Settings |
 
-### Status
-- orgId scoping: ✅ Done (16 refs)
-- Next.js 16.1.6 ✅
-- Prisma 7.3 ✅
+## Step 3: Create `blueprint.md`
 
-### ⚠️ Dependency Upgrade REQUIRED
-- NextAuth **4.24 → 5.0-beta.30** — CRITICAL for Founder OS SSO compatibility. NextAuth v5 uses App Router callbacks, v4 uses Pages Router — incompatible with ecosystem JWT format.
+Create `blueprint.md` at repo root with **full-stack** module breakdown. Each module MUST have:
+- **Components** list
+- **API Routes** with methods, paths, and descriptions
+- **Prisma Models** with key fields
+- **Config Schema** with parameterizable values
 
-### Game-Changer: Copilot-as-Endpoint
-Your embedded copilot IS the endpoint Founder OS calls. When a founder asks "what's my runway?", Founder OS routes to YOUR `/api/v1/copilot`. Your copilot must also be callable by other products' AI workers (e.g., a GTM agent asking "do we have budget for this deal?" or a Hiring agent asking "can we afford another hire?").
+```markdown
+# Finance Suite
 
-## Self-Testing (MANDATORY)
+## Overview
+- **Template ID**: `finance-suite`
+- **Category**: Finance
+- **Tagline**: Complete financial management with invoicing, expenses, and P&L
+- **Primary Color**: `#10b981`
+- **Emoji**: 💰
 
-Before filing a status report, you MUST verify your work:
-1. `npm run build` — zero build errors
-2. `npm run lint` — zero lint errors
-3. `browser` tool check — verify UI renders at `http://localhost:3008`
+## Presets
 
-If you find errors, FIX THEM inside the current session. Do not leave broken builds.
+### small-business
+- **Name**: Small Business
+- **Overrides**: currency, tax rate, expense categories
 
-## After Every Session
+### startup
+- **Name**: Startup Finance
+- **Overrides**: runway focus, burn rate metrics
 
-Update `STATUS_REPORT.md` in this folder per `../AGENT_HANDOFF_PROTOCOL.md`.
+### freelancer
+- **Name**: Freelancer
+- **Overrides**: invoice-centric, simplified categories
+```
+
+## What Success Looks Like
+
+1. **Every page** is polished — looks like a real QuickBooks/FreshBooks
+2. **Every API** has real accounting logic, proper decimal handling
+3. **Database** has proper financial modeling (double-entry ready)
+4. `blueprint.md` documents ALL three layers
+5. The app builds and runs end-to-end
