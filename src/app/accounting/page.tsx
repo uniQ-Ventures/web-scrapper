@@ -41,7 +41,12 @@ export default function AccountingPage() {
       } else if (view === "trial-balance") {
         const res = await fetch("/api/accounting/trial-balance");
         const data = await res.json();
-        setTrialBalance(data);
+        setTrialBalance({
+          accounts: data.trialBalance || [],
+          totalDebits: data.totals?.debits || 0,
+          totalCredits: data.totals?.credits || 0,
+          isBalanced: data.totals?.isBalanced ?? true,
+        });
       } else {
         const res = await fetch("/api/accounting/chart");
         const data = await res.json();
