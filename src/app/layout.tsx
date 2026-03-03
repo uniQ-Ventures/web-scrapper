@@ -31,11 +31,13 @@ import {
   LineChart,
   AlertTriangle,
   Bot,
+  Heart,
 } from "lucide-react";
 import CopilotPanel from "@/components/copilot-panel";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/health", label: "Health Score", icon: Heart },
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/expenses", label: "Expenses", icon: CreditCard },
   { href: "/revenue", label: "Revenue", icon: TrendingUp },
