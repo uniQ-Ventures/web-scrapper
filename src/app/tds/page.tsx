@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Receipt, Calendar, Building2, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Receipt, Calendar, Building2, AlertTriangle, CheckCircle2, ChevronDown, Download } from "lucide-react";
 
 interface VendorTDS {
   vendor: string;
@@ -55,6 +55,19 @@ export default function TDSPage() {
   function changeQuarter(q: string) {
     setSelectedQ(q);
     load(q);
+  }
+
+  async function downloadForm16A(vendor: string) {
+    const qs = `?vendor=${encodeURIComponent(vendor)}&quarter=${selectedQ}`;
+    const res = await fetch(`/api/tds/form16a${qs}`);
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Form16A_${vendor}_${selectedQ}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (loading || !data) {
@@ -156,6 +169,7 @@ export default function TDSPage() {
                 <th style={{ textAlign: "center" }}>Rate</th>
                 <th style={{ textAlign: "right" }}>TDS Amount</th>
                 <th style={{ textAlign: "right" }}>Net Payable</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -177,6 +191,7 @@ export default function TDSPage() {
                   </td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: "#EF4444" }}>{fmt(v.tdsAmount)}</td>
                   <td style={{ textAlign: "right", fontWeight: 600 }}>{fmt(v.netPayable)}</td>
+                  <td><button className="btn btn-secondary" style={{ fontSize: 10, padding: "3px 8px" }} onClick={() => downloadForm16A(v.vendor)}><Download size={12} /> 16A</button></td>
                 </tr>
               ))}
             </tbody>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, Calendar, ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { FileText, Calendar, ArrowDown, ArrowUp, Minus, Search, Download } from "lucide-react";
 
 interface GSTR3BData {
   type: string;
@@ -44,7 +44,7 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n);
 
 export default function GSTReturnsPage() {
-  const [view, setView] = useState<"gstr3b" | "gstr1">("gstr3b");
+  const [view, setView] = useState<"gstr3b" | "gstr1" | "hsn" | "einvoice">("gstr3b");
   const [data3b, setData3b] = useState<GSTR3BData | null>(null);
   const [data1, setData1] = useState<GSTR1Data | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +53,33 @@ export default function GSTReturnsPage() {
     d.setMonth(d.getMonth() - 1);
     return d.toISOString().slice(0, 7);
   });
+  const [hsnQuery, setHsnQuery] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [hsnResults, setHsnResults] = useState<any[]>([]);
+  const [hsnLoading, setHsnLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [einvoiceData, setEinvoiceData] = useState<any>(null);
+  const [einvoiceId, setEinvoiceId] = useState("");
+
+  async function searchHSN() {
+    if (!hsnQuery) return;
+    setHsnLoading(true);
+    try {
+      const res = await fetch(`/api/gst/hsn?q=${encodeURIComponent(hsnQuery)}`);
+      const data = await res.json();
+      setHsnResults(data.results || data.codes || []);
+    } catch (e) { console.error(e); }
+    finally { setHsnLoading(false); }
+  }
+
+  async function generateEinvoice() {
+    if (!einvoiceId) return;
+    try {
+      const res = await fetch(`/api/gst/einvoice?invoiceId=${einvoiceId}`);
+      const data = await res.json();
+      setEinvoiceData(data);
+    } catch (e) { console.error(e); }
+  }
 
   async function load() {
     setLoading(true);
@@ -98,7 +125,7 @@ export default function GSTReturnsPage() {
         display: "flex", gap: 4, marginBottom: 20,
         background: "var(--bg-secondary)", padding: 4, borderRadius: 8, width: "fit-content",
       }}>
-        {(["gstr3b", "gstr1"] as const).map((t) => (
+        {(["gstr3b", "gstr1", "hsn", "einvoice"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setView(t)}
@@ -110,7 +137,7 @@ export default function GSTReturnsPage() {
               boxShadow: view === t ? "0 1px 3px rgba(0,0,0,0.2)" : "none",
             }}
           >
-            {t === "gstr3b" ? "GSTR-3B (Summary)" : "GSTR-1 (Sales)"}
+            {t === "gstr3b" ? "GSTR-3B" : t === "gstr1" ? "GSTR-1" : t === "hsn" ? "HSN Lookup" : "E-Invoice"}
           </button>
         ))}
       </div>
@@ -276,6 +303,50 @@ export default function GSTReturnsPage() {
             </div>
           )}
         </>
+      ) : view === "hsn" ? (
+        <div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <input className="input" placeholder="Search HSN/SAC code or description..." value={hsnQuery} onChange={(e) => setHsnQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && searchHSN()} style={{ flex: 1 }} />
+            <button className="btn btn-primary" onClick={searchHSN} disabled={hsnLoading}><Search size={16} /> Search</button>
+          </div>
+          {hsnResults.length > 0 && (
+            <div className="table-container">
+              <table>
+                <thead><tr><th>Code</th><th>Description</th><th>Rate</th><th>Type</th></tr></thead>
+                <tbody>
+                  {hsnResults.map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ fontFamily: "monospace", fontWeight: 700 }}>{r.code}</td>
+                      <td>{r.description}</td>
+                      <td style={{ fontWeight: 600 }}>{r.rate || r.gstRate}%</td>
+                      <td><span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, background: "rgba(99,102,241,0.12)", color: "#818CF8" }}>{r.type || "HSN"}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : view === "einvoice" ? (
+        <div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <input className="input" placeholder="Enter Invoice ID to generate e-invoice JSON" value={einvoiceId} onChange={(e) => setEinvoiceId(e.target.value)} style={{ flex: 1 }} />
+            <button className="btn btn-primary" onClick={generateEinvoice}><FileText size={16} /> Generate</button>
+          </div>
+          {einvoiceData && (
+            <div className="table-container" style={{ padding: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                <h3 style={{ margin: 0 }}>E-Invoice JSON</h3>
+                <button className="btn btn-secondary" style={{ fontSize: 11, padding: "4px 10px" }} onClick={() => {
+                  const blob = new Blob([JSON.stringify(einvoiceData, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a"); a.href = url; a.download = "einvoice.json"; a.click();
+                }}><Download size={12} /> Download JSON</button>
+              </div>
+              <pre style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 8, fontSize: 12, overflow: "auto", maxHeight: 400 }}>{JSON.stringify(einvoiceData, null, 2)}</pre>
+            </div>
+          )}
+        </div>
       ) : (
         <div style={{ textAlign: "center", padding: 60, color: "var(--text-secondary)" }}>No data for this period</div>
       )}

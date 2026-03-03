@@ -57,6 +57,22 @@ export default function InvoicesPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [showPayment, setShowPayment] = useState(false);
+
+  const recordPayment = async (invoiceId: string) => {
+    if (!paymentAmount || Number(paymentAmount) <= 0) return;
+    await fetch(`/api/invoices/${invoiceId}/payments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: Number(paymentAmount), method: "bank_transfer" }),
+    });
+    setPaymentAmount("");
+    setShowPayment(false);
+    setSelectedInvoice(null);
+    loadInvoices();
+    toast("Payment recorded", "success");
+  };
 
   useEffect(() => {
     loadInvoices();
@@ -402,6 +418,26 @@ export default function InvoicesPage() {
                 <span>{formatCurrency(selectedInvoice.total)}</span>
               </div>
             </div>
+
+            {/* Partial Payment */}
+            {(selectedInvoice.status === "sent" || selectedInvoice.status === "overdue") && (
+              <div style={{ padding: "12px 16px", marginBottom: 12, background: "rgba(99,102,241,0.05)", borderRadius: 8, border: "1px solid rgba(99,102,241,0.15)" }}>
+                {showPayment ? (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>₹</span>
+                    <input className="input" type="number" placeholder="Payment amount" value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)} style={{ flex: 1, fontSize: 13 }} />
+                    <button className="btn btn-primary" style={{ fontSize: 12, padding: "6px 12px" }}
+                      onClick={() => recordPayment(selectedInvoice.id)}>Record</button>
+                    <button className="btn btn-secondary" style={{ fontSize: 12, padding: "6px 12px" }}
+                      onClick={() => setShowPayment(false)}>Cancel</button>
+                  </div>
+                ) : (
+                  <button className="btn btn-secondary" style={{ width: "100%", fontSize: 12 }}
+                    onClick={() => setShowPayment(true)}>💳 Record Partial Payment</button>
+                )}
+              </div>
+            )}
 
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => downloadPDF(selectedInvoice.id, selectedInvoice.invoiceNumber)}>

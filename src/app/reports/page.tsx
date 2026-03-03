@@ -27,7 +27,7 @@ import {
   Cell,
 } from "recharts";
 
-type Tab = "pnl" | "cashflow" | "tax" | "aging";
+type Tab = "pnl" | "cashflow" | "tax" | "aging" | "comparison";
 
 interface PnLData {
   revenue: { label: string; amount: number }[];
@@ -142,11 +142,26 @@ export default function ReportsPage() {
     toast("Downloading P&L CSV...", "info");
   };
 
+  const downloadPDF = () => {
+    window.open(`/api/reports/pdf?type=pnl&from=${fromDate}&to=${toDate}`, "_blank");
+    toast("Generating PDF...", "info");
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [comparison, setComparison] = useState<any>(null);
+  useEffect(() => {
+    if (tab === "comparison") {
+      fetch(`/api/reports/comparison?period=month&from=${fromDate}&to=${toDate}`)
+        .then((r) => r.json()).then(setComparison).catch(console.error);
+    }
+  }, [tab, fromDate, toDate]);
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "pnl", label: "Profit & Loss", icon: <BarChart3 size={16} /> },
     { id: "cashflow", label: "Cash Flow", icon: <TrendingUp size={16} /> },
     { id: "tax", label: "GST Summary", icon: <Calculator size={16} /> },
     { id: "aging", label: "Aging", icon: <Landmark size={16} /> },
+    { id: "comparison", label: "Comparison", icon: <DollarSign size={16} /> },
   ];
 
   // P&L combined chart data
@@ -169,9 +184,14 @@ export default function ReportsPage() {
           <p>Financial intelligence and reporting</p>
         </div>
         {tab === "pnl" && (
-          <button className="btn btn-secondary" onClick={downloadCSV}>
-            <FileDown size={16} /> Export CSV
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-secondary" onClick={downloadCSV}>
+              <FileDown size={16} /> Export CSV
+            </button>
+            <button className="btn btn-secondary" onClick={downloadPDF}>
+              <FileDown size={16} /> Export PDF
+            </button>
+          </div>
         )}
       </div>
 
@@ -550,6 +570,37 @@ export default function ReportsPage() {
             </>
           )}
         </>
+      )}
+
+      {/* Comparison Tab */}
+      {tab === "comparison" && (
+        <div className="table-container" style={{ padding: 24 }}>
+          <h3 style={{ marginBottom: 16 }}>Period Comparison</h3>
+          {comparison ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
+              <div className="kpi-card">
+                <div className="kpi-label">Revenue Change</div>
+                <div className="kpi-value" style={{ fontSize: 18, color: (comparison.revenueChange || 0) >= 0 ? "#22C55E" : "#EF4444" }}>
+                  {(comparison.revenueChange || 0) >= 0 ? "+" : ""}{comparison.revenueChange || 0}%
+                </div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-label">Expense Change</div>
+                <div className="kpi-value" style={{ fontSize: 18, color: (comparison.expenseChange || 0) <= 0 ? "#22C55E" : "#EF4444" }}>
+                  {(comparison.expenseChange || 0) >= 0 ? "+" : ""}{comparison.expenseChange || 0}%
+                </div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-label">Profit Change</div>
+                <div className="kpi-value" style={{ fontSize: 18, color: (comparison.profitChange || 0) >= 0 ? "#22C55E" : "#EF4444" }}>
+                  {(comparison.profitChange || 0) >= 0 ? "+" : ""}{comparison.profitChange || 0}%
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p style={{ color: "var(--text-secondary)" }}>Loading comparison data...</p>
+          )}
+        </div>
       )}
     </div>
   );

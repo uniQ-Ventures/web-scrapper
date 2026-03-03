@@ -25,9 +25,10 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function AccountingPage() {
   const { toast } = useToast();
-  const [view, setView] = useState<"chart" | "balance-sheet" | "journal">("chart");
+  const [view, setView] = useState<"chart" | "balance-sheet" | "trial-balance" | "journal">("chart");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bs, setBs] = useState<BalanceSheet | null>(null);
+  const [trialBalance, setTrialBalance] = useState<{ accounts: { code: string; name: string; type: string; debit: number; credit: number }[]; totalDebits: number; totalCredits: number; isBalanced: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -37,6 +38,10 @@ export default function AccountingPage() {
         const res = await fetch("/api/accounting/chart?view=balance-sheet");
         const data = await res.json();
         setBs(data.balanceSheet);
+      } else if (view === "trial-balance") {
+        const res = await fetch("/api/accounting/trial-balance");
+        const data = await res.json();
+        setTrialBalance(data);
       } else {
         const res = await fetch("/api/accounting/chart");
         const data = await res.json();
@@ -62,14 +67,14 @@ export default function AccountingPage() {
       </div>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--bg-secondary)", padding: 4, borderRadius: 8, width: "fit-content" }}>
-        {(["chart", "balance-sheet", "journal"] as const).map((v) => (
+        {(["chart", "balance-sheet", "trial-balance", "journal"] as const).map((v) => (
           <button key={v} onClick={() => setView(v)} style={{
             padding: "8px 20px", borderRadius: 6, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer",
             background: view === v ? "var(--bg-card)" : "transparent",
             color: view === v ? "var(--text-primary)" : "var(--text-secondary)",
             boxShadow: view === v ? "0 1px 3px rgba(0,0,0,0.2)" : "none",
           }}>
-            {v === "chart" ? "Chart of Accounts" : v === "balance-sheet" ? "Balance Sheet" : "Journal"}
+            {v === "chart" ? "Chart of Accounts" : v === "balance-sheet" ? "Balance Sheet" : v === "trial-balance" ? "Trial Balance" : "Journal"}
           </button>
         ))}
       </div>
@@ -147,6 +152,38 @@ export default function AccountingPage() {
               </span>
             </div>
           </div>
+        </div>
+      ) : view === "trial-balance" && trialBalance ? (
+        <div className="table-container">
+          <div className="table-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h3>Trial Balance</h3>
+            <span style={{ padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: trialBalance.isBalanced ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)", color: trialBalance.isBalanced ? "#22C55E" : "#EF4444" }}>
+              {trialBalance.isBalanced ? "✓ BALANCED" : "✗ UNBALANCED"}
+            </span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Code</th><th>Account</th><th>Type</th><th style={{ textAlign: "right" }}>Debit</th><th style={{ textAlign: "right" }}>Credit</th></tr>
+            </thead>
+            <tbody>
+              {trialBalance.accounts.map((a) => (
+                <tr key={a.code}>
+                  <td><span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: TYPE_COLORS[a.type] || "#666" }}>{a.code}</span></td>
+                  <td style={{ fontWeight: 500 }}>{a.name}</td>
+                  <td><span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, background: `${TYPE_COLORS[a.type] || "#666"}15`, color: TYPE_COLORS[a.type] || "#666" }}>{a.type}</span></td>
+                  <td style={{ textAlign: "right", fontWeight: a.debit > 0 ? 600 : 400, color: a.debit > 0 ? "var(--text-primary)" : "var(--text-tertiary)" }}>{a.debit > 0 ? fmt(a.debit) : "—"}</td>
+                  <td style={{ textAlign: "right", fontWeight: a.credit > 0 ? 600 : 400, color: a.credit > 0 ? "var(--text-primary)" : "var(--text-tertiary)" }}>{a.credit > 0 ? fmt(a.credit) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 800, fontSize: 14 }}>
+                <td colSpan={3}>TOTAL</td>
+                <td style={{ textAlign: "right" }}>{fmt(trialBalance.totalDebits)}</td>
+                <td style={{ textAlign: "right" }}>{fmt(trialBalance.totalCredits)}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       ) : (
         <div style={{ textAlign: "center", padding: 60, background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border-color)" }}>
