@@ -29,6 +29,8 @@ import {
   Users,
   BookOpen,
   LineChart,
+  AlertTriangle,
+  Bot,
 } from "lucide-react";
 import CopilotPanel from "@/components/copilot-panel";
 
@@ -47,6 +49,8 @@ const navItems = [
   { href: "/payroll", label: "Payroll", icon: Users },
   { href: "/accounting", label: "Accounting", icon: BookOpen },
   { href: "/forecast", label: "Forecast", icon: LineChart },
+  { href: "/anomalies", label: "Anomalies", icon: AlertTriangle },
+  { href: "/bookkeeper", label: "Bookkeeper", icon: Bot },
   { href: "/tds", label: "TDS", icon: Receipt },
   { href: "/gst", label: "GST Returns", icon: FileText },
   { href: "/fx", label: "FX Rates", icon: ArrowRightLeft },
