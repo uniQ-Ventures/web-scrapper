@@ -37,8 +37,12 @@ export async function DELETE(
     const { id } = await params;
     await prisma.expense.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Delete expense error:", error);
+    const prismaError = error as { code?: string };
+    if (prismaError.code === "P2025") {
+      return NextResponse.json({ error: "Expense not found" }, { status: 404 });
+    }
     return NextResponse.json({ error: "Failed to delete expense" }, { status: 500 });
   }
 }
