@@ -60,6 +60,7 @@ const navItems = [
   { href: "/gst", label: "GST Returns", icon: FileText },
   { href: "/fx", label: "FX Rates", icon: ArrowRightLeft },
   { href: "/compliance", label: "Calendar", icon: CalendarDays },
+  { href: "/team", label: "Team", icon: Users },
   { href: "/audit", label: "Audit Log", icon: Shield },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

@@ -109,6 +109,7 @@ model User {
   email     String   @unique
   fullName  String?
   avatarUrl String?
+  role      String   @default("admin")  // admin | accountant | viewer | approver
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -130,6 +131,8 @@ model User {
   employees          Employee[]
   payrollRuns        PayrollRun[]
   receipts           Receipt[]
+  activityLogs       ActivityLog[]
+  approvals          ExpenseApproval[]
 }
 
 model Account {
@@ -261,6 +264,7 @@ model Expense {
   accountId      String?
   account        Account?         @relation(fields: [accountId], references: [id])
   receipts       Receipt[]
+  approvals      ExpenseApproval[]
 }
 
 model Revenue {
@@ -447,4 +451,30 @@ model Receipt {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenseId      String?
   expense        Expense? @relation(fields: [expenseId], references: [id])
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  action      String                          // created | updated | deleted | approved | rejected | sent
+  resource    String                          // expense | invoice | vendor | receipt | budget | payroll
+  resourceId  String?
+  metadata    String?  @db.Text              // JSON with details
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ExpenseApproval {
+  id          String   @id @default(uuid())
+  status      String   @default("pending")   // pending | approved | rejected
+  comments    String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  expenseId   String
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  approverId  String
+  approver    User     @relation(fields: [approverId], references: [id], onDelete: Cascade)
 }
