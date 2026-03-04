@@ -129,6 +129,7 @@ model User {
   payments           Payment[]
   employees          Employee[]
   payrollRuns        PayrollRun[]
+  receipts           Receipt[]
 }
 
 model Account {
@@ -259,6 +260,7 @@ model Expense {
   vendorEntity   Vendor?          @relation(fields: [vendorId], references: [id])
   accountId      String?
   account        Account?         @relation(fields: [accountId], references: [id])
+  receipts       Receipt[]
 }
 
 model Revenue {
@@ -420,4 +422,29 @@ model RecurringExpense {
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
+}
+
+model Receipt {
+  id             String   @id @default(uuid())
+  fileName       String
+  mimeType       String   @default("image/jpeg")
+  imageData      String   @db.Text               // base64-encoded image
+  status         String   @default("pending")     // pending | processed | failed
+  confidence     Decimal? @db.Decimal(3, 2)       // OCR confidence 0-1
+
+  // Extracted fields (JSON)
+  extractedData  String?  @db.Text               // full JSON from OCR
+  extractedAmount   Decimal? @db.Decimal(15, 2)
+  extractedVendor   String?
+  extractedDate     DateTime?
+  extractedGst      String?                      // GST number from receipt
+  extractedCategory String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenseId      String?
+  expense        Expense? @relation(fields: [expenseId], references: [id])
 }

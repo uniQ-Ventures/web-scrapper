@@ -33,6 +33,7 @@ import {
   Bot,
   Heart,
   Shield,
+  Camera,
 } from "lucide-react";
 import CopilotPanel from "@/components/copilot-panel";
 
@@ -41,6 +42,7 @@ const navItems = [
   { href: "/health", label: "Health Score", icon: Heart },
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/expenses", label: "Expenses", icon: CreditCard },
+  { href: "/receipts", label: "Receipts", icon: Camera },
   { href: "/revenue", label: "Revenue", icon: TrendingUp },
   { href: "/vendors", label: "Vendors", icon: Store },
   { href: "/bank", label: "Bank", icon: Building2 },
