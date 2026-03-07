@@ -131,7 +131,16 @@ export default function ReportsPage() {
     ]).then(([p, c, t, a]) => {
       setPnl(p);
       setCashFlow(c);
-      setTax(t);
+      // Normalize: API returns outputTax as {cgst,sgst,igst,total} and inputTax (not inputTaxCredit)
+      if (t) {
+        setTax({
+          outputTax: typeof t.outputTax === "object" ? (t.outputTax?.total ?? 0) : (t.outputTax ?? 0),
+          inputTaxCredit: t.inputTaxCredit ?? t.inputTax ?? 0,
+          netPayable: t.netPayable ?? 0,
+          invoiceCount: t.invoiceCount ?? 0,
+          expenseCount: t.expenseCount ?? 0,
+        });
+      }
       setAging(a);
       setLoading(false);
     });
